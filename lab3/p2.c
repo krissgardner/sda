@@ -29,7 +29,7 @@ typedef struct {
 } Stats;
 
 void Stats_print(Stats* stats) {
-    printf("Comparisons: %ul\nAttribs: %ul\n", stats->comparisons, stats->comparisons);
+    printf("Comparisons: %u\nAttribs: %u\n", stats->comparisons, stats->comparisons);
 }
 
 // Student
@@ -67,14 +67,16 @@ Stats Data_selSort(Data data, int (*comp)(Student*, Student*)) {
     stats.attribs = 0;
     stats.comparisons = 0;
 
-    for (int i = 0; i < data.len; i++) {
+    for (int i = 0; i < data.len - 1; i++) {
+        int min = i;
         for (int j = i + 1; j < data.len; j++) {
-            if (comp(data.students[i], data.students[j])) {
-                Data_swap(data.students + i, data.students + j);
-                stats.attribs += 3;
+            if (data.students[j] < data.students[min]) {
+                min = j;
             }
             stats.comparisons++;
         }
+        Data_swap(data.students + min, data.students + i);
+        stats.attribs++;
     }
 
     return stats;
