@@ -17,4 +17,4 @@ p1.o: p1.c
 # 	gcc -c p2.c
 
 clean:
-	rm *.o p1 nume_filme.txt
+	rm -f *.o p1 nume_filme.txt categorii_filme.txt premii_filme.txt

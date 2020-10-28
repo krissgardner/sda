@@ -3,10 +3,14 @@
 #include <string.h>
 
 #define FILENAME "filme.txt"
-#define FILENAME_OUT "nume_filme.txt"
+#define SORTED_BY_NAME "nume_filme.txt"
+#define SORTED_BY_CATEGORY "categorii_filme.txt"
+#define SORTED_BY_AWARD "premii_filme.txt"
 #define LINEMAX 100 // checked
 #define TITLEMAX 70
 #define CATEGORYMAX 20
+
+#define DEV 1
 
 #ifndef DEV
 #define READLIMIT
@@ -14,7 +18,7 @@
 #define READLIMIT if (data.len >= 10) break;
 #endif
 
-/**
+/***************************
 * Helpers
 **/
 
@@ -22,13 +26,16 @@ void removeEndl(char* str) {
     str[strcspn(str, "\r\n")] = '\0';
 }
 
-/**
+/***************************
 * Data types and methods
 **/
 
 // Note: maybe make categories static to save memory
 
-// Movie
+/**
+* Movie
+**/
+
 typedef struct {
     short year;
     short duration;
@@ -37,8 +44,14 @@ typedef struct {
     char hasAwards;
 } Movie;
 
-void Movie_print(Movie* movie) {
-    printf("%-60s %-6hd %-6hd %-20s %-6hhd\n",
+void Movie_swap(Movie** a, Movie** b) {
+    Movie* temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void Movie_print(Movie* movie, FILE* fout) {
+    fprintf(fout, "%-60s %-6hd %-6hd %-20s %-6hhd\n",
         movie->title,
         movie->year,
         movie->duration,
@@ -47,18 +60,60 @@ void Movie_print(Movie* movie) {
     );
 }
 
+// Modified Quicksort for Movie by category
+void Movie_partition(Movie** movies, int low, int high, int* i, int* j) {
+    // Handles two elements
+    if (high - low <= 1) {
+        if (strcmp(movies[high]->category, movies[low]->category) < 0) {
+            Movie_swap(movies + high, movies + low);
+        }
+        *i = low;
+        *j = high;
+        return;
+    }
 
-// Data
+    int mid = low;
+    char* pivot = movies[high]->category;
+
+    while (mid <= high) {
+        if (strcmp(movies[mid]->category, pivot) < 0) {
+            Movie_swap(movies + low++, movies + mid++);
+        }
+        else if (strcmp(movies[mid]->category, pivot) > 0) {
+            Movie_swap(movies + mid, movies + high--);
+        }
+        else {
+            mid++;
+        }
+    }
+
+    // Update i and j
+    *i = low - 1;
+    *j = mid;
+}
+
+void Movie_quicksort(Movie** movies, int low, int high) {
+    // Handles one or no elements
+    if (low >= high) {
+        return;
+    }
+
+    int i, j;
+    Movie_partition(movies, low, high, &i, &j);
+
+    // Recur two halves
+    Movie_quicksort(movies, low, i);
+    Movie_quicksort(movies, j, high);
+}
+
+/**
+* Data
+**/
+
 typedef struct {
     Movie** movies;
     int len;
 } Data;
-
-void Data_swap(Movie** a, Movie** b) {
-    Movie* temp = *a;
-    *a = *b;
-    *b = temp;
-}
 
 void Data_free(Data data) {
     for (int i = 0; i < data.len; i++) {
@@ -69,23 +124,14 @@ void Data_free(Data data) {
     free(data.movies);
 }
 
-void Data_print(Data data) {
+void Data_print(Data data, FILE* fout) {
     for (int i = 0; i < data.len; i++) {
-        Movie_print(data.movies[i]);
+        Movie_print(data.movies[i], fout);
     }
 }
 
-// Used for the first task of p1
-void Data_printTitles(Data data, FILE* fout) {
-    for (int i = data.len - 1; i >= 0; i--) {
-        fprintf(fout, "%s\n", data.movies[i]->title);
-    }
-}
 
-/**
-* HEAPSORT for Data
-**/
-
+// HEAPSORT for Data
 // Note: maybe make comp function a param
 void Data_heapify(Data data, int i) {
     int largest = i;
@@ -101,7 +147,7 @@ void Data_heapify(Data data, int i) {
     }
 
     if (largest != i) {
-        Data_swap(&data.movies[i], &data.movies[largest]);
+        Movie_swap(&data.movies[i], &data.movies[largest]);
         Data_heapify(data, largest);
     }
 }
@@ -115,14 +161,15 @@ void Data_heapSort(Data data) {
     while (data.len != 1) {
         // Move largest item to the end of the heap
         data.len--;
-        Data_swap(data.movies + 0, data.movies + data.len);
+        Movie_swap(data.movies + 0, data.movies + data.len);
 
         // call max heapify on the reduced heap
         Data_heapify(data, 0);
     }
 }
 
-/**
+
+/***************************
 * Main
 **/
 
@@ -132,11 +179,14 @@ int main() {
     * FILE
     **/
 
-    // Get file name
-    const char* filename = FILENAME;
+    // Variable to hold current file name
+    char* filename;
+    // Variables that hold in/out file refs
+    FILE* fin, * fout;
 
-    // Open file
-    FILE* fin = fopen(filename, "r");
+    // Get file name
+    filename = FILENAME;
+    fin = fopen(filename, "r");
     if (fin == NULL) {
         fprintf(stderr, "Could not open file %s\n", filename);
         exit(EXIT_FAILURE);
@@ -250,31 +300,48 @@ int main() {
     fclose(fin);
     free(line);
 
-    /**
+    /***************************
     * Logic
     */
 
+    // Task 1
+
     // Open out file for sorted titles
-    char* filenameOut = FILENAME_OUT;
-    FILE* fout = fopen(filenameOut, "w");
+    filename = SORTED_BY_NAME;
+    fout = fopen(filename, "w");
     if (fout == NULL) {
-        fprintf(stderr, "Could no open file %s\n", filenameOut);
+        fprintf(stderr, "Could no open file %s\n", filename);
         Data_free(data);
-        fclose(fout);
         exit(EXIT_FAILURE);
     }
 
     // Sort and print
     Data_heapSort(data);
-    Data_printTitles(data, fout);
+    Data_print(data, fout);
+
+    // Close the file
+    fclose(fout);
+
+    // Task 2
+
+    // Open out file for sorted categories
+    filename = SORTED_BY_CATEGORY;
+    fout = fopen(filename, "w");
+    if (fout == NULL) {
+        fprintf(stderr, "Could no open file %s\n", filename);
+        Data_free(data);
+        exit(EXIT_FAILURE);
+    }
+
+    // Sort movies by category and print data
+    Movie_quicksort(data.movies, 0, data.len - 1);
+    Data_print(data, fout);
 
     // Close the file
     fclose(fout);
 
 
-
-
-    /**
+    /***************************
     * Clean
     */
 
