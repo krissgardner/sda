@@ -3,10 +3,16 @@
 #include <string.h>
 
 #define FILENAME "filme.txt"
+#define FILENAME_OUT "nume_filme.txt"
 #define LINEMAX 100 // checked
 #define TITLEMAX 70
 #define CATEGORYMAX 20
 
+#ifndef DEV
+#define READLIMIT
+#else
+#define READLIMIT if (data.len >= 10) break;
+#endif
 
 /**
 * Helpers
@@ -69,6 +75,53 @@ void Data_print(Data data) {
     }
 }
 
+// Used for the first task of p1
+void Data_printTitles(Data data, FILE* fout) {
+    for (int i = data.len - 1; i >= 0; i--) {
+        fprintf(fout, "%s\n", data.movies[i]->title);
+    }
+}
+
+/**
+* HEAPSORT for Data
+**/
+
+// Note: maybe make comp function a param
+void Data_heapify(Data data, int i) {
+    int largest = i;
+    int l = 2 * i + 1;
+    int r = 2 * i + 2;
+
+    if (l < data.len && strcmp(data.movies[l]->title, data.movies[largest]->title) > 0) {
+        largest = l;
+    }
+
+    if (r < data.len && strcmp(data.movies[r]->title, data.movies[largest]->title) > 0) {
+        largest = r;
+    }
+
+    if (largest != i) {
+        Data_swap(&data.movies[i], &data.movies[largest]);
+        Data_heapify(data, largest);
+    }
+}
+
+void Data_heapSort(Data data) {
+    // Build heap (rearrange array) 
+    for (int i = data.len / 2 - 1; i >= 0; i--) {
+        Data_heapify(data, i);
+    }
+
+    while (data.len != 1) {
+        // Move largest item to the end of the heap
+        data.len--;
+        Data_swap(data.movies + 0, data.movies + data.len);
+
+        // call max heapify on the reduced heap
+        Data_heapify(data, 0);
+    }
+}
+
 /**
 * Main
 **/
@@ -112,8 +165,10 @@ int main() {
     fgets(line, LINEMAX, fin); // dump useless data
     while (fgets(line, LINEMAX, fin)) {
 
-        // Remove trailing format characters if any
-        removeEndl(line);
+        READLIMIT
+
+            // Remove trailing format characters if any
+            removeEndl(line);
 
         // Get more memory for next movie
         temp = (Movie**)realloc(data.movies, (data.len + 1) * sizeof(Movie*));
@@ -195,12 +250,26 @@ int main() {
     fclose(fin);
     free(line);
 
-    Data_print(data);
-
-
     /**
     * Logic
     */
+
+    // Open out file for sorted titles
+    char* filenameOut = FILENAME_OUT;
+    FILE* fout = fopen(filenameOut, "w");
+    if (fout == NULL) {
+        fprintf(stderr, "Could no open file %s\n", filenameOut);
+        Data_free(data);
+        fclose(fout);
+        exit(EXIT_FAILURE);
+    }
+
+    // Sort and print
+    Data_heapSort(data);
+    Data_printTitles(data, fout);
+
+    // Close the file
+    fclose(fout);
 
 
 
@@ -210,6 +279,5 @@ int main() {
     */
 
     Data_free(data);
-
     return 0;
 }
