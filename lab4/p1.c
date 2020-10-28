@@ -10,13 +10,15 @@
 #define TITLEMAX 70
 #define CATEGORYMAX 20
 
-#define DEV 1
-
 #ifndef DEV
 #define READLIMIT
 #else
 #define READLIMIT if (data.len >= 10) break;
 #endif
+
+// GLOBALS
+const char* const hasAward[] = { "Nu", "Da" };
+
 
 /***************************
 * Helpers
@@ -51,12 +53,12 @@ void Movie_swap(Movie** a, Movie** b) {
 }
 
 void Movie_print(Movie* movie, FILE* fout) {
-    fprintf(fout, "%-60s %-6hd %-6hd %-20s %-6hhd\n",
+    fprintf(fout, "%-70s %-6hd %-6hd %-16s %-3s\n",
         movie->title,
         movie->year,
         movie->duration,
         movie->category,
-        movie->hasAwards
+        hasAward[movie->hasAwards]
     );
 }
 
@@ -138,11 +140,11 @@ void Data_heapify(Data data, int i) {
     int l = 2 * i + 1;
     int r = 2 * i + 2;
 
-    if (l < data.len && strcmp(data.movies[l]->title, data.movies[largest]->title) > 0) {
+    if (l < data.len && strcmp(data.movies[l]->title, data.movies[largest]->title) < 0) {
         largest = l;
     }
 
-    if (r < data.len && strcmp(data.movies[r]->title, data.movies[largest]->title) > 0) {
+    if (r < data.len && strcmp(data.movies[r]->title, data.movies[largest]->title) < 0) {
         largest = r;
     }
 
@@ -165,6 +167,31 @@ void Data_heapSort(Data data) {
 
         // call max heapify on the reduced heap
         Data_heapify(data, 0);
+    }
+}
+
+// Countsort for Data
+void Data_countsort(Data data) {
+    // Output array 
+    Movie* output[data.len];
+    int count[2] = { 0 };
+
+    // Store count of occurrences in count[] 
+    for (int i = 0; i < data.len; i++) {
+        count[data.movies[i]->hasAwards]++;
+    }
+
+    count[1] += count[0];
+
+    // Build the output array 
+    for (int i = data.len - 1; i >= 0; i--) {
+        output[count[data.movies[i]->hasAwards] - 1] = data.movies[i];
+        count[data.movies[i]->hasAwards]--;
+    }
+
+    // Copy output to initial array
+    for (int i = 0; i < data.len; i++) {
+        data.movies[i] = output[data.len - i - 1];
     }
 }
 
@@ -286,7 +313,7 @@ int main() {
                 break;
             }
             case 4: {
-                crt->hasAwards = atoi(token);
+                crt->hasAwards = !strcmp(token, hasAward[0]) ? 0 : 1;
                 break;
             }
             }
@@ -335,6 +362,24 @@ int main() {
 
     // Sort movies by category and print data
     Movie_quicksort(data.movies, 0, data.len - 1);
+    Data_print(data, fout);
+
+    // Close the file
+    fclose(fout);
+
+    // Task 3
+
+    // Open out file for sorted categories
+    filename = SORTED_BY_AWARD;
+    fout = fopen(filename, "w");
+    if (fout == NULL) {
+        fprintf(stderr, "Could no open file %s\n", filename);
+        Data_free(data);
+        exit(EXIT_FAILURE);
+    }
+
+    // Sort movies by award and print data
+    Data_countsort(data);
     Data_print(data, fout);
 
     // Close the file
