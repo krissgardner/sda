@@ -10,6 +10,8 @@
 #define TITLEMAX 70
 #define CATEGORYMAX 20
 
+#define DEV
+
 #ifndef DEV
 #define READLIMIT
 #else
@@ -18,7 +20,6 @@
 
 // GLOBALS
 const char* const hasAward[] = { "Nu", "Da" };
-
 
 /***************************
 * Helpers
@@ -32,7 +33,40 @@ void removeEndl(char* str) {
 * Data types and methods
 **/
 
-// Note: maybe make categories static to save memory
+// Made categories static to save memory
+typedef struct {
+    char** array;
+    int len;
+    int* sortedIndex;
+} Categories;
+
+Categories categs; // Global category manager
+
+void Categories_free() {
+    for (int i = 0; i < categs.len; i++) {
+        free(categs.array[i]);
+    }
+    free(categs.array);
+    free(categs.sortedIndex);
+}
+
+int Categories_comp(const void* a, const void* b) {
+    return strcmp(categs.array[*(int*)a], categs.array[*(int*)b]);
+}
+
+void Categories_makeSortedMap() {
+    for (int i = 0; i < categs.len; i++) {
+        categs.sortedIndex[i] = i;
+    }
+    qsort(categs.sortedIndex, categs.len, sizeof(int), Categories_comp);
+    int map[categs.len];
+    for (int i = 0; i < categs.len; i++) {
+        map[categs.sortedIndex[i]] = i;
+    }
+    for (int i = 0; i < categs.len; i++) {
+        categs.sortedIndex[i] = map[i];
+    }
+}
 
 /**
 * Movie
@@ -42,7 +76,7 @@ typedef struct {
     short year;
     short duration;
     char* title;
-    char* category;
+    char category;
     char hasAwards;
 } Movie;
 
@@ -57,7 +91,7 @@ void Movie_print(Movie* movie, FILE* fout) {
         movie->title,
         movie->year,
         movie->duration,
-        movie->category,
+        categs.array[movie->category],
         hasAward[movie->hasAwards]
     );
 }
@@ -66,7 +100,7 @@ void Movie_print(Movie* movie, FILE* fout) {
 void Movie_partition(Movie** movies, int low, int high, int* i, int* j) {
     // Handles two elements
     if (high - low <= 1) {
-        if (strcmp(movies[high]->category, movies[low]->category) < 0) {
+        if (categs.sortedIndex[movies[high]->category] < categs.sortedIndex[movies[low]->category]) {
             Movie_swap(movies + high, movies + low);
         }
         *i = low;
@@ -75,13 +109,13 @@ void Movie_partition(Movie** movies, int low, int high, int* i, int* j) {
     }
 
     int mid = low;
-    char* pivot = movies[high]->category;
+    int pivot = movies[high]->category;
 
     while (mid <= high) {
-        if (strcmp(movies[mid]->category, pivot) < 0) {
+        if (categs.sortedIndex[movies[mid]->category] < categs.sortedIndex[pivot]) {
             Movie_swap(movies + low++, movies + mid++);
         }
-        else if (strcmp(movies[mid]->category, pivot) > 0) {
+        else if (categs.sortedIndex[movies[mid]->category] > categs.sortedIndex[pivot]) {
             Movie_swap(movies + mid, movies + high--);
         }
         else {
@@ -119,11 +153,12 @@ typedef struct {
 
 void Data_free(Data data) {
     for (int i = 0; i < data.len; i++) {
-        free(data.movies[i]->category);
+        //free(data.movies[i]->category);
         free(data.movies[i]->title);
         free(data.movies[i]);
     }
     free(data.movies);
+    Categories_free();
 }
 
 void Data_print(Data data, FILE* fout) {
@@ -230,6 +265,9 @@ int main() {
     data.movies = NULL;
     Movie** temp = NULL;
 
+    categs.array = NULL;
+    categs.len = 0;
+
     // Create line holder
     char* line = (char*)malloc(LINEMAX * sizeof(char));
     if (line == NULL) {
@@ -279,17 +317,6 @@ int main() {
             exit(EXIT_FAILURE);
         }
 
-        // Get memory for movie category
-        crt->category = (char*)malloc(CATEGORYMAX * sizeof(char));
-        if (crt->category == NULL) {
-            free(crt->title);
-            fprintf(stderr, "Failed malloc\n");
-            free(data.movies[data.len]);
-            Data_free(data);
-            fclose(fin);
-            exit(EXIT_FAILURE);
-        }
-
         for (char* token = strtok(line, "\t"), i = 0; token != NULL; token = strtok(NULL, "\t"), i++) {
             //printf("%s\n", token);
             switch (i) {
@@ -308,8 +335,49 @@ int main() {
                 break;
             }
             case 3: {
-                strcpy(crt->category, token);
-                crt->category = (char*)realloc(crt->category, (strlen(crt->category) + 1) * sizeof(char));
+                // strcpy(crt->category, token);
+                // crt->category = (char*)realloc(crt->category, (strlen(crt->category) + 1) * sizeof(char));
+                int found = 0;
+                for (int i = 0; i < categs.len; i++) {
+                    if (!strcmp(token, categs.array[i])) {
+                        found = 1;
+                        // Store index
+                        crt->category = i;
+                        break;
+                    }
+                }
+                if (!found) {
+                    int memoryFail = 0;
+
+                    // Add new category
+                    char** temp = (char**)realloc(categs.array, (categs.len + 1) * sizeof(char*));
+                    if (temp == NULL) {
+                        // Flag error
+                        memoryFail = 1;
+                    }
+                    if (!memoryFail) {// Skip if it has failed
+                        categs.array = temp;
+                        categs.array[categs.len] = (char*)malloc((strlen(token) + 1) * sizeof(char));
+                        if (categs.array[categs.len] == NULL) {
+                            // Flag error
+                            memoryFail = 1;
+                        }
+                    }
+                    // Handle free
+                    if (memoryFail) {
+                        free(crt->title);
+                        fprintf(stderr, "Failed malloc\n");
+                        free(data.movies[data.len]);
+                        Data_free(data);
+                        fclose(fin);
+                        exit(EXIT_FAILURE);
+                    }
+                    strcpy(categs.array[categs.len], token);
+                    categs.len++;
+
+                    // Assign new index
+                    crt->category = categs.len - 1;
+                }
                 break;
             }
             case 4: {
@@ -326,6 +394,18 @@ int main() {
     // Close the file and free unused memory
     fclose(fin);
     free(line);
+
+    // Create sorted category array
+    categs.sortedIndex = (int*)malloc(categs.len * sizeof(int));
+    if (categs.sortedIndex == NULL) {
+        fprintf(stderr, "Failed malloc\n");
+        Data_free(data);
+        exit(EXIT_FAILURE);
+    }
+
+    // Map array
+    Categories_makeSortedMap();
+
 
     /***************************
     * Logic
