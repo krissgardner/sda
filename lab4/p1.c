@@ -10,8 +10,6 @@
 #define TITLEMAX 70
 #define CATEGORYMAX 20
 
-#define DEV
-
 #ifndef DEV
 #define READLIMIT
 #else
@@ -19,6 +17,7 @@
 #endif
 
 // GLOBALS
+// String map for awards
 const char* const hasAward[] = { "Nu", "Da" };
 
 /***************************
@@ -142,6 +141,7 @@ void Movie_quicksort(Movie** movies, int low, int high) {
     Movie_quicksort(movies, j, high);
 }
 
+
 /**
 * Data
 **/
@@ -169,7 +169,6 @@ void Data_print(Data data, FILE* fout) {
 
 
 // HEAPSORT for Data
-// Note: maybe make comp function a param
 void Data_heapify(Data data, int i) {
     int largest = i;
     int l = 2 * i + 1;
@@ -243,6 +242,7 @@ int main() {
 
     // Variable to hold current file name
     char* filename;
+
     // Variables that hold in/out file refs
     FILE* fin, * fout;
 
@@ -265,8 +265,10 @@ int main() {
     data.movies = NULL;
     Movie** temp = NULL;
 
+    // Init global variable categs
     categs.array = NULL;
     categs.len = 0;
+    categs.sortedIndex = NULL;
 
     // Create line holder
     char* line = (char*)malloc(LINEMAX * sizeof(char));
@@ -280,6 +282,7 @@ int main() {
     fgets(line, LINEMAX, fin); // dump useless data
     while (fgets(line, LINEMAX, fin)) {
 
+        // Development macro
         READLIMIT
 
             // Remove trailing format characters if any
@@ -403,7 +406,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Map array
+    // Get map array
     Categories_makeSortedMap();
 
 
