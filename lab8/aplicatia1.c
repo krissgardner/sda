@@ -131,7 +131,7 @@ void Carte_afisare(Carte* head) {
 int main() {
 
     Carte* biblioteca = NULL;
-    Carte_imprumut_nou(&biblioteca, "Kriss Gardner Bibliografie", "Kriss", "Diana Kovacs", "Timisoara la Labrador", 1000);
+    Carte_imprumut_nou(&biblioteca, "Kriss Gardner Bibliografie", "Kriss", "Diana Kovacs", "Timisoara la La", 1000);
     Carte_imprumut_nou(&biblioteca, "Kriss Gardner Bibliografie", "Kriss", "Andrei Stoica", "Timisoara la gara", 0);
     Carte_afisare(biblioteca);
     Carte_actualizare(biblioteca);
@@ -139,7 +139,7 @@ int main() {
     Carte_returnare(&biblioteca, "Diana Kovacs");
     Carte_afisare(biblioteca);
 
-    //Carte_vidare(biblioteca);
+    Carte_vidare(biblioteca);
 
     return 0;
 }
