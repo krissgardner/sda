@@ -1,0 +1,9 @@
+6
+7 M Popescu Andrei
+3 F Ardelean Nicoleta
+2 F Zamfirescu Claudia
+10 M Becali Gheorghe
+7 M Decebal Traian
+10 F Variu Stela
+Becali Gheorghe
+Variu Stela
